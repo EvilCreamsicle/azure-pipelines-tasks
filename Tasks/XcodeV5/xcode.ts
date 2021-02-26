@@ -189,6 +189,8 @@ async function run() {
         let xcode_codeSignIdentity: string;
         let xcode_provProfile: string;
         let xcode_provProfileSpecifier: string;
+        let xcode_provProfileApp: string;
+        let xcode_provProfileSpecifierApp: string;
         let xcode_devTeam: string;
 
         telemetryData.signingOption = signingOption;
@@ -207,6 +209,11 @@ async function run() {
             let provProfileUUID: string = tl.getInput('provisioningProfileUuid');
             let provProfileName: string = tl.getInput('provisioningProfileName');
 
+            // appOnlySign allows signing of apps that have framework which does not support signing, 
+            // such as Unity projects which require using PROVISIONING_PROFILE_APP and PROVISIONING_PROFILE_SPECIFIER_APP 
+            // instead of PROVISIONING_PROFILE and PROVISIONING_PROFILE_SPECIFIER
+            let appOnlySign: string = tl.getInput('appOnlySigning'); 
+
             if (!provProfileUUID) {
                 provProfileUUID = "";
             }
@@ -215,13 +222,21 @@ async function run() {
                 provProfileName = "";
             }
 
-            // PROVISIONING_PROFILE_SPECIFIER takes predence over PROVISIONING_PROFILE,
-            // so it's important to pass it to Xcode even if it's empty. That way Xcode
-            // will ignore any specifier in the project file and honor the specifier
-            // or uuid we passed on the commandline. If the user wants to use the specifier
-            // in the project file, they should choose the "Project Defaults" signing style.
-            xcode_provProfile = `PROVISIONING_PROFILE=${provProfileUUID}`;
-            xcode_provProfileSpecifier = `PROVISIONING_PROFILE_SPECIFIER=${provProfileName}`;
+            if (!appOnlySign || appOnlySign.toLowerCase() !== 'true') {  
+                // PROVISIONING_PROFILE_SPECIFIER takes precedence over PROVISIONING_PROFILE,
+                // so it's important to pass it to Xcode even if it's empty. That way Xcode
+                // will ignore any specifier in the project file and honor the specifier
+                // or uuid we passed on the commandline. If the user wants to use the specifier
+                // in the project file, they should choose the "Project Defaults" signing style.
+                xcode_provProfile = `PROVISIONING_PROFILE=${provProfileUUID}`;
+                xcode_provProfileSpecifier = `PROVISIONING_PROFILE_SPECIFIER=${provProfileName}`;
+            }
+            else if (appOnlySign.toLowerCase() === 'true' ) {
+                xcode_provProfile = `PROVISIONING_PROFILE=`;
+                xcode_provProfileSpecifier = `PROVISIONING_PROFILE_SPECIFIER=`;
+                xcode_provProfileApp = `PROVISIONING_PROFILE_APP=${provProfileUUID}`;
+                xcode_provProfileSpecifierApp = `PROVISIONING_PROFILE_SPECIFIER_APP=${provProfileName}`;
+            }
         }
         else if (signingOption === 'auto') {
             xcode_codeSignStyle = 'CODE_SIGN_STYLE=Automatic';
@@ -237,6 +252,8 @@ async function run() {
         xcb.argIf(xcode_codeSignIdentity, xcode_codeSignIdentity);
         xcb.argIf(xcode_provProfile, xcode_provProfile);
         xcb.argIf(xcode_provProfileSpecifier, xcode_provProfileSpecifier);
+        xcb.argIf(xcode_provProfileApp, xcode_provProfileApp);
+        xcb.argIf(xcode_provProfileSpecifierApp, xcode_provProfileSpecifierApp);
         xcb.argIf(xcode_devTeam, xcode_devTeam);
 
         //--- Enable Xcpretty formatting ---
@@ -318,6 +335,8 @@ async function run() {
             xcodeArchive.argIf(xcode_codeSignIdentity, xcode_codeSignIdentity);
             xcodeArchive.argIf(xcode_provProfile, xcode_provProfile);
             xcodeArchive.argIf(xcode_provProfileSpecifier, xcode_provProfileSpecifier);
+            xcodeArchive.argIf(xcode_provProfileApp, xcode_provProfileApp);
+            xcodeArchive.argIf(xcode_provProfileSpecifierApp, xcode_provProfileSpecifierApp);
             xcodeArchive.argIf(xcode_devTeam, xcode_devTeam);
             if (args) {
                 xcodeArchive.line(args);
